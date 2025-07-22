@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: travel-webapp
+  namespace: travel-webapp
+  labels:
+    app: travel-webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: travel-webapp
+  template:
+    metadata:
+      labels:
+        app: travel-webapp
+    spec:
+      serviceAccountName: travel-webapp-sa
+      containers:
+      - name: travel-webapp
+        image: 418544663637.dkr.ecr.ap-south-1.amazonaws.com/travel_webpage:v1
+        ports:
+        - containerPort: 80
+        env:
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: travel-webapp-config
+              key: app.name
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: travel-webapp-secret
+              key: database-url
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: travel-webapp-secret
+              key: api-key
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: travel-webapp-config
+      - name: nginx-config
+        configMap:
+          name: travel-webapp-config
+          items:
+          - key: nginx.conf
+            path: default.conf
